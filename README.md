@@ -26,14 +26,11 @@ BLU devices that sit behind a gateway (for example BLU TRV) are updated by the o
 
 ## Install
 
-Copy `custom_components/shelly_firmware` into your Home Assistant
-`config/custom_components` folder and restart Home Assistant.
+Add this repository in HACS as a custom integration, install **Shelly Local Firmware**, and restart Home Assistant.
 
-Or, with the Advanced SSH & Web Terminal add-on:
+In HACS, open **Integrations**, choose the menu, then **Custom repositories**. Add `https://github.com/diogolccsilva/ha-shelly-firmware` with category **Integration**. Download **Shelly Local Firmware** and restart.
 
-```powershell
-.\scripts\deploy.ps1
-```
+To install without HACS, copy `custom_components/shelly_firmware` into your Home Assistant `config/custom_components` folder and restart.
 
 Then **Settings → Devices & services → Add integration → Shelly Local Firmware**.
 
