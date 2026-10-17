@@ -10,7 +10,7 @@ def normalize_base_url(value: str) -> str:
     """Return ``scheme://host[:port]`` or raise ``ValueError``.
 
     Devices download firmware from this origin. A path, query, or trailing
-    slash is dropped so the integration controls the ``/local/`` path.
+    slash is dropped so the integration controls the download path.
     """
     parsed = urlparse(value.strip())
     if parsed.scheme not in {"http", "https"} or not parsed.hostname:
@@ -25,9 +25,14 @@ def normalize_base_url(value: str) -> str:
     return f"{parsed.scheme}://{host}"
 
 
+# Served by this integration. Home Assistant only publishes config/www at
+# /local when that directory already exists during startup.
+FIRMWARE_URL_PREFIX = "/shelly_firmware"
+
+
 def firmware_public_url(base_url: str, mac: str) -> str:
     """URL a Shelly device uses to download its staged firmware."""
-    return f"{normalize_base_url(base_url)}/local/shelly_firmware/{mac}.zip"
+    return f"{normalize_base_url(base_url)}{FIRMWARE_URL_PREFIX}/{mac}.zip"
 
 
 def staged_firmware_path(config_path: str, mac: str) -> Path:

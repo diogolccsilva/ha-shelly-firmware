@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.1.2
+
+- Serve staged firmware from a path the integration registers itself, so the first update works without an extra Home Assistant restart.
+
 ## 0.1.1
 
 - Discover Shelly devices on the network and offer this integration under Discovered.

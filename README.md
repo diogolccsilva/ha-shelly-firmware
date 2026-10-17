@@ -9,8 +9,9 @@ reach the internet.
 The official Shelly integration asks the device to download firmware from
 Shelly. If that download is blocked, the device reports that it is up to date
 even when a newer version exists. This integration checks Shelly's catalog
-from Home Assistant, and when you press **Update** it hosts the image under
-`/config/www` and calls `Shelly.Update` with that local URL.
+from Home Assistant, and when you press **Update** it hosts the image and
+calls `Shelly.Update` with that local URL. The file is served as soon as the
+update starts, including when Home Assistant has no `www` folder yet.
 
 ## Features
 

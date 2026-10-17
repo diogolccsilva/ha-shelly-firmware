@@ -57,7 +57,7 @@ def test_normalize_base_url_rejects_junk() -> None:
 
 def test_firmware_public_url() -> None:
     assert util.firmware_public_url("http://192.168.1.10:8123", "AABBCCDDEEFF") == (
-        "http://192.168.1.10:8123/local/shelly_firmware/AABBCCDDEEFF.zip"
+        "http://192.168.1.10:8123/shelly_firmware/AABBCCDDEEFF.zip"
     )
 
 
