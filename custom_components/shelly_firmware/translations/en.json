@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Add a Shelly device",
-        "description": "Home Assistant checks Shelly's catalog and, when you install an update, hosts the file so the device can download it without internet access. Use the address the device can reach, usually http://<home-assistant-ip>:8123.",
+        "description": "Home Assistant checks Shelly's catalog and, when you install an update, hosts the file so the device can download it without internet access. Use the address the device can reach, usually http://192.168.1.10:8123.",
         "data": {
           "host": "Device IP address",
           "username": "Username",
