@@ -1,0 +1,14 @@
+{
+  "domain": "shelly_firmware",
+  "name": "Shelly Local Firmware",
+  "codeowners": ["@diogolccsilva"],
+  "config_flow": true,
+  "dependencies": ["http"],
+  "documentation": "https://github.com/diogolccsilva/ha-shelly-firmware",
+  "integration_type": "device",
+  "iot_class": "local_polling",
+  "issue_tracker": "https://github.com/diogolccsilva/ha-shelly-firmware/issues",
+  "requirements": [],
+  "version": "0.1.0",
+  "zeroconf": ["_shelly._tcp.local."]
+}

@@ -1,0 +1,19 @@
+[project]
+name = "ha-shelly-firmware"
+version = "0.1.0"
+description = "Home Assistant integration that stages Shelly firmware locally and exposes update entities"
+readme = "README.md"
+requires-python = ">=3.12"
+license = { text = "MIT" }
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B"]
+ignore = ["E501"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"

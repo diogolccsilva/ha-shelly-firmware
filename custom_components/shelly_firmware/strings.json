@@ -1,0 +1,67 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "title": "Add a Shelly device",
+        "description": "Home Assistant checks Shelly's catalog and, when you install an update, hosts the file so the device can download it without internet access. Use the address the device can reach, usually http://<home-assistant-ip>:8123.",
+        "data": {
+          "host": "Device IP address",
+          "username": "Username",
+          "password": "Password",
+          "base_url": "Home Assistant address"
+        }
+      },
+      "discovery_confirm": {
+        "title": "Shelly device found",
+        "description": "Set up firmware updates for the Shelly at {host}. The Home Assistant address must be reachable from the device.",
+        "data": {
+          "username": "Username",
+          "password": "Password",
+          "base_url": "Home Assistant address"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Reauthenticate Shelly device",
+        "description": "The device rejected the saved login.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "cannot_connect": "Couldn't reach this Shelly device. Check the IP address and that it is on the same network.",
+      "invalid_auth": "The device rejected that username or password.",
+      "invalid_base_url": "Enter a Home Assistant address like http://192.168.1.10:8123.",
+      "unsupported": "This device is not a Gen2 or newer Shelly that speaks RPC."
+    },
+    "abort": {
+      "already_configured": "This Shelly device is already set up.",
+      "reauth_successful": "Authentication updated."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "Shelly firmware options",
+        "description": "Stable is offered only when it is newer than the installed version, so a beta device is not downgraded. Local hosting downloads the image onto Home Assistant and gives the device that URL.",
+        "data": {
+          "serve_locally": "Host the firmware on Home Assistant",
+          "channel": "Channel",
+          "base_url": "Home Assistant address"
+        }
+      }
+    },
+    "error": {
+      "invalid_base_url": "Enter a Home Assistant address like http://192.168.1.10:8123."
+    }
+  },
+  "entity": {
+    "update": {
+      "firmware": {
+        "name": "Firmware"
+      }
+    }
+  }
+}
