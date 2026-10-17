@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.1.1
+
+- Discover Shelly devices on the network and offer this integration under Discovered.
+- Ask for a device password only when the device requires one.
+
 ## 0.1.0
 
 - Check Shelly's firmware catalog from Home Assistant and show a Firmware update entity.

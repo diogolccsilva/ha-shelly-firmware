@@ -116,6 +116,74 @@ def test_mac_from_zeroconf_name() -> None:
     )
 
 
+class _Address:
+    def __init__(self, version: int, text: str) -> None:
+        self.version = version
+        self.text = text
+
+    def __str__(self) -> str:
+        return self.text
+
+
+def test_parse_zeroconf_dict() -> None:
+    host, mac, title, ipv6 = rpc.parse_zeroconf(
+        {
+            "name": "shellyblugwg3-28372f21a124._shelly._tcp.local.",
+            "host": "192.168.2.208",
+            "properties": {"gen": "3"},
+        }
+    )
+    assert (host, mac, title, ipv6) == (
+        "192.168.2.208",
+        "28372F21A124",
+        "shellyblugwg3-28372f21a124",
+        False,
+    )
+    assert rpc.discovery_generation({"properties": {"gen": "3"}}) == "3"
+    assert rpc.discovery_generation({"properties": {b"gen": b"1"}}) == "1"
+
+
+def test_parse_zeroconf_prefers_ipv4() -> None:
+    host, mac, _, ipv6 = rpc.parse_zeroconf(
+        {
+            "name": "shellywalldisplay-0008220b3bcd._shelly._tcp.local.",
+            "host": "fe80::1",
+            "ip_address": _Address(6, "fe80::1"),
+            "ip_addresses": [_Address(6, "fe80::1"), _Address(4, "192.168.2.121")],
+        }
+    )
+    assert host == "192.168.2.121"
+    assert mac == "0008220B3BCD"
+    assert ipv6 is False
+
+
+def test_parse_zeroconf_ipv6_only() -> None:
+    _, _, _, ipv6 = rpc.parse_zeroconf(
+        {
+            "name": "shellyx-aabbccddeeff._shelly._tcp.local.",
+            "host": "fe80::1",
+        }
+    )
+    assert ipv6 is True
+
+
+def test_parse_dhcp() -> None:
+    info = type(
+        "Dhcp",
+        (),
+        {
+            "ip": "192.168.2.208",
+            "hostname": "shellyblugwg3-28372f21a124.local",
+            "macaddress": "28:37:2f:21:a1:24",
+        },
+    )()
+    assert rpc.parse_dhcp(info) == (
+        "192.168.2.208",
+        "28372F21A124",
+        "shellyblugwg3-28372f21a124",
+    )
+
+
 def test_digest_rfc2617_example() -> None:
     header = rpc.build_digest_authorization(
         username="Mufasa",

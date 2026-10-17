@@ -38,10 +38,18 @@ from .const import (
     DOMAIN,
 )
 from .errors import AuthRequired, RpcError, ShellyFirmwareError, UnsupportedDevice
-from .rpc import DeviceIdentity, ShellyClient, mac_from_zeroconf_name
+from .rpc import (
+    DeviceIdentity,
+    ShellyClient,
+    discovery_generation,
+    parse_dhcp,
+    parse_zeroconf,
+)
 from .util import normalize_base_url
 
 _LOGGER = logging.getLogger(__name__)
+
+_PASSWORD = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD))
 
 
 def _suggested_base_url(hass: Any) -> str:
@@ -58,6 +66,10 @@ class ShellyFirmwareConfigFlow(ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         self._discovered_host: str | None = None
+        self._discovered_name = ""
+        self._needs_auth = False
+        self._pending_host = ""
+        self._pending_base_url = ""
 
     async def async_step_user(
         self, user_input: dict[str, Any] | None = None
@@ -65,8 +77,18 @@ class ShellyFirmwareConfigFlow(ConfigFlow, domain=DOMAIN):
         """Ask for a host and the address devices use to reach Home Assistant."""
         errors: dict[str, str] = {}
         if user_input is not None:
-            result = await self._async_try_create(user_input)
-            # Flow results are dicts too. Only field errors lack a result type.
+            self._pending_host = str(user_input[CONF_HOST]).strip()
+            self._pending_base_url = str(user_input[CONF_BASE_URL])
+            result = await self._async_try_create(
+                {
+                    CONF_HOST: self._pending_host,
+                    CONF_USERNAME: "",
+                    CONF_PASSWORD: "",
+                    CONF_BASE_URL: self._pending_base_url,
+                }
+            )
+            if result == {"base": "invalid_auth"}:
+                return await self.async_step_credentials()
             if "type" in result:
                 return result
             errors = result
@@ -77,31 +99,116 @@ class ShellyFirmwareConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Required(
                     CONF_HOST, default=(user_input or {}).get(CONF_HOST, "")
                 ): str,
-                vol.Optional(CONF_USERNAME, default=""): str,
-                vol.Optional(CONF_PASSWORD, default=""): TextSelector(
-                    TextSelectorConfig(type=TextSelectorType.PASSWORD)
-                ),
                 vol.Required(CONF_BASE_URL, default=suggested): str,
             }
         )
         return self.async_show_form(step_id="user", data_schema=schema, errors=errors)
 
+    async def async_step_credentials(
+        self, user_input: dict[str, Any] | None = None
+    ) -> ConfigFlowResult:
+        """Ask for a password after the device rejected an anonymous login."""
+        errors: dict[str, str] = {}
+        if user_input is not None:
+            result = await self._async_try_create(
+                {
+                    CONF_HOST: self._pending_host,
+                    CONF_USERNAME: user_input.get(CONF_USERNAME, ""),
+                    CONF_PASSWORD: user_input.get(CONF_PASSWORD, ""),
+                    CONF_BASE_URL: self._pending_base_url,
+                }
+            )
+            if "type" in result:
+                return result
+            errors = result
+
+        schema = vol.Schema(
+            {
+                vol.Required(CONF_USERNAME, default="admin"): str,
+                vol.Required(CONF_PASSWORD): _PASSWORD,
+            }
+        )
+        return self.async_show_form(
+            step_id="credentials", data_schema=schema, errors=errors
+        )
+
     async def async_step_zeroconf(self, discovery_info: Any) -> ConfigFlowResult:
-        """Offer Shelly devices announced on the LAN."""
-        ip_address = getattr(discovery_info, "ip_address", None)
-        host = str(ip_address or getattr(discovery_info, "host", ""))
-        mac = mac_from_zeroconf_name(str(discovery_info.name))
-        # Do not reserve the unique id yet. A discovery form that holds it
-        # makes a manual setup of the same device abort with
-        # already_in_progress, and these devices are often discovered while
-        # the user is adding them by IP.
-        if mac and mac in self._async_current_ids():
-            await self.async_set_unique_id(mac, raise_on_progress=False)
-            self._abort_if_unique_id_configured(updates={CONF_HOST: host})
+        """Offer a Shelly announced on the LAN as a discovered integration."""
+        try:
+            host, mac, title, ipv6 = parse_zeroconf(discovery_info)
+            generation = discovery_generation(discovery_info)
+        except Exception:
+            _LOGGER.exception("Couldn't read a Shelly discovery announcement")
+            return self.async_abort(reason="cannot_connect")
+        if ipv6:
+            _LOGGER.debug("Ignoring IPv6 Shelly announcement for %s", title or host)
+            return self.async_abort(reason="ipv6_not_supported")
+        if generation == "1":
+            return self.async_abort(reason="unsupported")
+        return await self._async_offer_device(host, mac, title)
+
+    async def async_step_dhcp(self, discovery_info: Any) -> ConfigFlowResult:
+        """Offer a Shelly seen in DHCP when mDNS did not reach Home Assistant."""
+        try:
+            host, mac, title = parse_dhcp(discovery_info)
+        except Exception:
+            _LOGGER.exception("Couldn't read a Shelly DHCP announcement")
+            return self.async_abort(reason="cannot_connect")
+        return await self._async_offer_device(host, mac, title)
+
+    async def _async_offer_device(
+        self, host: str, mac: str | None, title: str
+    ) -> ConfigFlowResult:
+        """Probe a discovered device and show one confirmation card."""
+        if not host:
+            return self.async_abort(reason="cannot_connect")
         self._discovered_host = host
-        name = str(discovery_info.name).split(".", 1)[0]
-        self.context["title_placeholders"] = {"name": name}
+        self._discovered_name = title or host
+        self._needs_auth = False
+        if mac:
+            reserved = await self._async_reserve(mac, host)
+            if reserved is not None:
+                return reserved
+        try:
+            identity = await _probe(self.hass, host, "", "")
+        except AuthRequired:
+            self._needs_auth = True
+        except UnsupportedDevice:
+            return self.async_abort(reason="unsupported")
+        except ShellyFirmwareError as err:
+            _LOGGER.debug("Discovery probe of %s failed: %s", host, err)
+        else:
+            self._discovered_name = identity.name
+            reserved = await self._async_reserve(identity.mac, host)
+            if reserved is not None:
+                return reserved
+        self.context.update(
+            {
+                "title_placeholders": {"name": self._discovered_name},
+                "configuration_url": f"http://{host}",
+            }
+        )
+        _LOGGER.info(
+            "Offering firmware setup for %s at %s", self._discovered_name, host
+        )
         return await self.async_step_discovery_confirm()
+
+    async def _async_reserve(self, mac: str, host: str) -> ConfigFlowResult | None:
+        """Claim a device, or abort when it is already set up or already offered.
+
+        Uninitialized flows are ignored. A previous discovery that crashed
+        before showing a form must not hide the card forever.
+        """
+        await self.async_set_unique_id(mac, raise_on_progress=False)
+        self._abort_if_unique_id_configured(updates={CONF_HOST: host})
+        for flow in self.hass.config_entries.flow.async_progress_by_handler(
+            DOMAIN, include_uninitialized=False
+        ):
+            if flow["flow_id"] == self.flow_id:
+                continue
+            if (flow.get("context") or {}).get("unique_id") == mac:
+                return self.async_abort(reason="already_in_progress")
+        return None
 
     async def async_step_discovery_confirm(
         self, user_input: dict[str, Any] | None = None
@@ -117,25 +224,26 @@ class ShellyFirmwareConfigFlow(ConfigFlow, domain=DOMAIN):
                     CONF_BASE_URL: user_input[CONF_BASE_URL],
                 }
             )
+            if result == {"base": "invalid_auth"}:
+                self._needs_auth = True
             if "type" in result:
                 return result
             errors = result
 
-        schema = vol.Schema(
-            {
-                vol.Optional(CONF_USERNAME, default=""): str,
-                vol.Optional(CONF_PASSWORD, default=""): TextSelector(
-                    TextSelectorConfig(type=TextSelectorType.PASSWORD)
-                ),
-                vol.Required(
-                    CONF_BASE_URL, default=_suggested_base_url(self.hass)
-                ): str,
-            }
+        fields: dict[Any, Any] = {}
+        if self._needs_auth:
+            fields[vol.Required(CONF_USERNAME, default="admin")] = str
+            fields[vol.Required(CONF_PASSWORD)] = _PASSWORD
+        fields[vol.Required(CONF_BASE_URL, default=_suggested_base_url(self.hass))] = (
+            str
         )
         return self.async_show_form(
             step_id="discovery_confirm",
-            data_schema=schema,
-            description_placeholders={"host": self._discovered_host or ""},
+            data_schema=vol.Schema(fields),
+            description_placeholders={
+                "name": self._discovered_name or self._discovered_host or "",
+                "host": self._discovered_host or "",
+            },
             errors=errors,
         )
 
@@ -172,9 +280,7 @@ class ShellyFirmwareConfigFlow(ConfigFlow, domain=DOMAIN):
                 vol.Required(
                     CONF_USERNAME, default=entry.data.get(CONF_USERNAME, "")
                 ): str,
-                vol.Required(CONF_PASSWORD): TextSelector(
-                    TextSelectorConfig(type=TextSelectorType.PASSWORD)
-                ),
+                vol.Required(CONF_PASSWORD): _PASSWORD,
             }
         )
         return self.async_show_form(

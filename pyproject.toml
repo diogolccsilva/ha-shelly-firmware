@@ -1,6 +1,6 @@
 [project]
 name = "ha-shelly-firmware"
-version = "0.1.0"
+version = "0.1.1"
 description = "Home Assistant integration that stages Shelly firmware locally and exposes update entities"
 readme = "README.md"
 requires-python = ">=3.12"

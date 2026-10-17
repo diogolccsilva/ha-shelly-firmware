@@ -4,11 +4,24 @@
   "codeowners": ["@diogolccsilva"],
   "config_flow": true,
   "dependencies": ["http"],
+  "dhcp": [
+    {
+      "hostname": "shelly*"
+    }
+  ],
   "documentation": "https://github.com/diogolccsilva/ha-shelly-firmware",
   "integration_type": "device",
   "iot_class": "local_polling",
   "issue_tracker": "https://github.com/diogolccsilva/ha-shelly-firmware/issues",
   "requirements": [],
-  "version": "0.1.0",
-  "zeroconf": ["_shelly._tcp.local."]
+  "version": "0.1.1",
+  "zeroconf": [
+    {
+      "type": "_shelly._tcp.local."
+    },
+    {
+      "type": "_http._tcp.local.",
+      "name": "shelly*"
+    }
+  ]
 }

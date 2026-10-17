@@ -21,6 +21,7 @@ from Home Assistant, and when you press **Update** it hosts the image under
 - Local hosting (default): Home Assistant downloads the zip, checks the SHA-256 Shelly publishes in the URL, and the device installs from your LAN.
 - Direct mode: the device downloads from Shelly itself, for devices that do have internet.
 - The update entity is attached to the device the official Shelly integration already created.
+- Shelly devices on the network show up under **Discovered**, so you can add them without typing an IP address.
 
 BLU devices that sit behind a gateway (for example BLU TRV) are updated by the official Shelly integration through the gateway. This integration updates the gateway and the Wall Display, not those sleepy BLU devices.
 
@@ -32,14 +33,18 @@ In HACS, open **Integrations**, choose the menu, then **Custom repositories**. A
 
 To install without HACS, copy `custom_components/shelly_firmware` into your Home Assistant `config/custom_components` folder and restart.
 
-Then **Settings → Devices & services → Add integration → Shelly Local Firmware**.
+Restart Home Assistant after installing. Zeroconf and DHCP discovery are
+registered at startup, so a restart is what makes the devices appear.
 
-Discovered Shelly devices are offered automatically. For each one, set the
-**Home Assistant address** to a URL the device can actually open, usually
-`http://<home-assistant-ip>:8123`. `homeassistant.local` often does not resolve
-on the device.
+Then open **Settings → Devices & services**. Shelly devices on the network
+show up under **Discovered** as **Shelly Local Firmware**, including devices
+already added to the official Shelly integration. Choose **Add** and confirm
+the **Home Assistant address**. That address has to be one the device can
+open, usually `http://192.168.1.10:8123`. `homeassistant.local` often does not
+resolve on the device.
 
-Leave username and password empty unless the device has authentication enabled.
+If a device does not appear, add the integration manually and enter its IP
+address. A password is asked for only when the device requires one.
 
 ## Options
 

@@ -7,14 +7,20 @@
         "description": "Home Assistant checks Shelly's catalog and, when you install an update, hosts the file so the device can download it without internet access. Use the address the device can reach, usually http://192.168.1.10:8123.",
         "data": {
           "host": "Device IP address",
-          "username": "Username",
-          "password": "Password",
           "base_url": "Home Assistant address"
+        }
+      },
+      "credentials": {
+        "title": "Shelly login",
+        "description": "This Shelly requires a username and password.",
+        "data": {
+          "username": "Username",
+          "password": "Password"
         }
       },
       "discovery_confirm": {
         "title": "Shelly device found",
-        "description": "Set up firmware updates for the Shelly at {host}. The Home Assistant address must be reachable from the device.",
+        "description": "Set up firmware updates for {name} at {host}. Home Assistant downloads the image, and the device fetches it from the address below.",
         "data": {
           "username": "Username",
           "password": "Password",
@@ -38,7 +44,11 @@
     },
     "abort": {
       "already_configured": "This Shelly device is already set up.",
-      "reauth_successful": "Authentication updated."
+      "already_in_progress": "This Shelly device is already being added.",
+      "cannot_connect": "Couldn't reach this Shelly device.",
+      "ipv6_not_supported": "IPv6 addresses are not used for firmware updates.",
+      "reauth_successful": "Authentication updated.",
+      "unsupported": "This device is not a Gen2 or newer Shelly that speaks RPC."
     }
   },
   "options": {

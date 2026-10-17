@@ -126,6 +126,101 @@ def mac_from_zeroconf_name(name: str) -> str | None:
     return None
 
 
+def _service_name(discovery_info: Any) -> str:
+    if isinstance(discovery_info, dict):
+        return str(discovery_info.get("name") or discovery_info.get("hostname") or "")
+    return str(
+        getattr(discovery_info, "name", "")
+        or getattr(discovery_info, "hostname", "")
+        or ""
+    )
+
+
+def _ipv4_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    if getattr(value, "version", None) == 4:
+        return str(value)
+    text = str(value).strip()
+    parts = text.split(".")
+    if len(parts) == 4 and all(part.isdigit() and int(part) <= 255 for part in parts):
+        return text
+    return None
+
+
+def _looks_like_ipv6(value: Any) -> bool:
+    if value is None:
+        return False
+    if getattr(value, "version", None) == 6:
+        return True
+    return str(value).count(":") >= 2
+
+
+def parse_zeroconf(discovery_info: Any) -> tuple[str, str | None, str, bool]:
+    """Return host, MAC, title, and whether the announcement is IPv6-only.
+
+    Accepts a Home Assistant ``ZeroconfServiceInfo`` or the older dict form.
+    An IPv4 address is preferred when the same record carries both.
+    """
+    if isinstance(discovery_info, dict):
+        primary = discovery_info.get("ip_address")
+        addresses = list(discovery_info.get("ip_addresses") or [])
+        host = str(discovery_info.get("host") or primary or "")
+    else:
+        primary = getattr(discovery_info, "ip_address", None)
+        addresses = list(getattr(discovery_info, "ip_addresses", None) or [])
+        host = str(getattr(discovery_info, "host", None) or primary or "")
+    name = _service_name(discovery_info)
+    mac = mac_from_zeroconf_name(name) if name else None
+    title = name.split(".", 1)[0] if name else host
+    ipv4 = _ipv4_text(primary) or _ipv4_text(host)
+    if ipv4 is None:
+        for address in addresses:
+            ipv4 = _ipv4_text(address)
+            if ipv4:
+                break
+    if ipv4:
+        return ipv4, mac, title or ipv4, False
+    ipv6 = _looks_like_ipv6(primary) or _looks_like_ipv6(host)
+    return host, mac, title or host, ipv6
+
+
+def discovery_generation(discovery_info: Any) -> str | None:
+    """Return the generation advertised in zeroconf TXT data, if any."""
+    if isinstance(discovery_info, dict):
+        properties = discovery_info.get("properties") or {}
+    else:
+        properties = getattr(discovery_info, "properties", None) or {}
+    if not isinstance(properties, dict):
+        return None
+    raw = properties.get("gen", properties.get(b"gen"))
+    if isinstance(raw, bytes):
+        raw = raw.decode(errors="replace")
+    if raw is None or raw == "":
+        return None
+    return str(raw)
+
+
+def parse_dhcp(discovery_info: Any) -> tuple[str, str | None, str]:
+    """Return host, MAC, and title from a DHCP discovery."""
+    if isinstance(discovery_info, dict):
+        host = str(discovery_info.get("ip") or "")
+        hostname = str(discovery_info.get("hostname") or "")
+        mac_raw = str(discovery_info.get("macaddress") or "")
+    else:
+        host = str(getattr(discovery_info, "ip", "") or "")
+        hostname = str(getattr(discovery_info, "hostname", "") or "")
+        mac_raw = str(getattr(discovery_info, "macaddress", "") or "")
+    compact = mac_raw.replace(":", "").replace("-", "").upper()
+    mac = (
+        compact
+        if len(compact) == 12 and all(char in "0123456789ABCDEF" for char in compact)
+        else None
+    )
+    title = hostname.rstrip(".").split(".", 1)[0] or host
+    return host, mac, title
+
+
 def identity_from_status(
     info: dict[str, Any], configured_name: str | None
 ) -> DeviceIdentity:
